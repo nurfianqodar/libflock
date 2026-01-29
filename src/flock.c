@@ -108,7 +108,7 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 
 struct flock_file *flock_decrypt(struct flock_file *file, struct flock_key *key)
 {
-	size_t meta_len = FLOCK_TAG_LEN - FLOCK_HEADER_LEN;
+	size_t meta_len = FLOCK_TAG_LEN + FLOCK_HEADER_LEN;
 	if (file->buf_len < meta_len) {
         fprintf(stderr, "file has no meta\n");
 		return NULL;
