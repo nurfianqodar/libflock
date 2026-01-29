@@ -1,0 +1,10 @@
+.cache/
+tmp/
+build/
+
+compile_commands.json
+
+.vscode/
+.zed/
+.idea/
+.vs/
