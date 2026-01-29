@@ -1,7 +1,6 @@
 #ifndef LIBFLOCK_H_
 #define LIBFLOCK_H_
 
-#include "libflock/version.h"
 #include <stddef.h>
 #include <stdint.h>
 
