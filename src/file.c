@@ -1,19 +1,36 @@
 #include "libflock/flock.h"
 #include "libflock/version.h"
-#include "util.h"
 #include <fcntl.h>
-#include <stddef.h>
+#include <openssl/evp.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <openssl/evp.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static bool _flock_stat_is_valid(const struct stat *st);
 
 static bool _flock_file_has_magic(uint8_t *buf);
+
+struct flock_file *flock_file_new(const char *path, uint8_t *buf,
+				  size_t buf_len)
+{
+	struct flock_file *f;
+	f = malloc(sizeof *f);
+	if (!f) {
+		return NULL;
+	}
+	f->buf = buf;
+	f->buf_len = buf_len;
+	f->path = strdup(path);
+	if (!f->path) {
+		free(f);
+		return NULL;
+	}
+	return f;
+}
 
 struct flock_file *flock_file_load(const char *path)
 {
@@ -42,8 +59,7 @@ struct flock_file *flock_file_load(const char *path)
 		munmap(buf, buf_len);
 		return NULL;
 	}
-
-	struct flock_file *f = _flock_file_new(buf, buf_len, path_dup);
+	struct flock_file *f = flock_file_new(path_dup, buf, buf_len);
 	if (!f) {
 		close(fd);
 		munmap(buf, buf_len);

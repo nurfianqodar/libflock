@@ -1,7 +1,7 @@
 #include "libflock/flock.h"
-#include <string.h>
 #include <argon2.h>
 #include <openssl/rand.h>
+#include <string.h>
 
 int flock_key_load(struct flock_key *key, struct flock_key_param *param,
 		   uint8_t *pwd, size_t pwd_len)

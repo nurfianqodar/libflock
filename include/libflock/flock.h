@@ -90,6 +90,9 @@ struct flock_file {
 
 struct flock_file *flock_file_load(const char *path);
 
+struct flock_file *flock_file_new(const char *path, uint8_t *buf,
+				  size_t buf_len);
+
 void flock_file_unload(struct flock_file *file);
 
 int flock_file_save(struct flock_file *file);
