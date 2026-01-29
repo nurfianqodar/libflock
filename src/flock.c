@@ -6,7 +6,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h> #include <endian.h>
+#include <sys/mman.h> 
+#include <endian.h>
+
 static const uint8_t FLOCK_MAGIC[FLOCK_MAGIC_LEN] = { 0xde, 0xad, 0xbe, 0xef };
 
 static struct flock_file *_flock_file_new(uint8_t *buf, size_t buf_len,
