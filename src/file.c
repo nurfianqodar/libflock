@@ -1,5 +1,6 @@
 #include "libflock/flock.h"
 #include "libflock/version.h"
+#include "util.h"
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -9,9 +10,6 @@
 #include <openssl/evp.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-
-static struct flock_file *_flock_file_new(uint8_t *buf, size_t buf_len,
-					  const char *path);
 
 static bool _flock_stat_is_valid(const struct stat *st);
 
@@ -121,24 +119,6 @@ int flock_file_set_path(struct flock_file *file, const char *path)
 	free(file->path);
 	file->path = new_path;
 	return 0;
-}
-
-static struct flock_file *_flock_file_new(uint8_t *buf, size_t buf_len,
-					  const char *path)
-{
-	struct flock_file *f;
-	f = malloc(sizeof *f);
-	if (!f) {
-		return NULL;
-	}
-	f->buf = buf;
-	f->buf_len = buf_len;
-	f->path = strdup(path);
-	if (!f->path) {
-		free(f);
-		return NULL;
-	}
-	return f;
 }
 
 static bool _flock_stat_is_valid(const struct stat *st)
