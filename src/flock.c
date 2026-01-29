@@ -1,7 +1,10 @@
 #include "libflock/flock.h"
+#include "libflock/error.h"
 #include "libflock/version.h"
 #include "util.h"
 #include <endian.h>
+#include <errno.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -50,19 +53,23 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 {
 	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 	if (!ctx) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		return NULL;
 	}
 	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
 	if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
 				     FLOCK_KEY_NONCE_LEN, NULL)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
 	if (1 !=
 	    EVP_EncryptInit_ex(ctx, NULL, NULL, key->buf, key->param.nonce)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
@@ -72,6 +79,7 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1,
 			    0); // Create cipher file buffer
 	if (MAP_FAILED == out) {
+		_flock_errno_set_by_errno(errno);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
@@ -79,6 +87,7 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 	int aad_len = 0; // dummy (for now)
 	if (1 !=
 	    EVP_EncryptUpdate(ctx, NULL, &aad_len, out, FLOCK_HEADER_LEN)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		EVP_CIPHER_CTX_free(ctx);
 		munmap(out, out_len);
 		return NULL;
@@ -86,6 +95,7 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 	int cip_len = 0;
 	if (1 != EVP_EncryptUpdate(ctx, out + off, &cip_len, file->buf,
 				   file->buf_len)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
@@ -93,24 +103,28 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 	off += cip_len;
 	int tmp = 0;
 	if (1 != EVP_EncryptFinal_ex(ctx, NULL, &tmp)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
 	if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, FLOCK_TAG_LEN,
 				     out + off)) {
+		_flock_errno_set_by_ossl(ERR_get_error());
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
 	off += FLOCK_TAG_LEN;
 	if (off != out_len) {
+		flock_errno = FLOCK_E_UDEF;
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
 	char *out_path = strdup(file->path);
 	if (!out_path) {
+		_flock_errno_set_by_errno(errno);
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;

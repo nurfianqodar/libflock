@@ -1,3 +1,4 @@
+#include "libflock/error.h"
 #include "libflock/flock.h"
 #include <argon2.h>
 #include <openssl/rand.h>
@@ -21,9 +22,11 @@ int flock_key_load(struct flock_key *key, struct flock_key_param *param,
 int flock_key_new(struct flock_key *key, uint8_t *pwd, size_t pwd_len)
 {
 	if (1 != RAND_bytes(key->param.nonce, FLOCK_KEY_NONCE_LEN)) {
+		flock_errno = FLOCK_E_UDEF;
 		return -1;
 	}
 	if (1 != RAND_bytes(key->param.salt, FLOCK_KEY_SALT_LEN)) {
+		flock_errno = FLOCK_E_UDEF;
 		return -1;
 	}
 	if (ARGON2_OK != argon2id_hash_raw(FLOCK_KEY_TIME_COST,
@@ -31,6 +34,7 @@ int flock_key_new(struct flock_key *key, uint8_t *pwd, size_t pwd_len)
 					   FLOCK_KEY_THREAD_COST, pwd, pwd_len,
 					   key->param.salt, FLOCK_KEY_SALT_LEN,
 					   key->buf, FLOCK_KEY_BUF_LEN)) {
+		flock_errno = FLOCK_E_UDEF;
 		return -1;
 	}
 	return 0;

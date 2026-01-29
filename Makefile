@@ -2,7 +2,7 @@ AR				= ar
 
 CC				= gcc
 CFLAGS			= -Wall -Wextra -O2 -Iinclude -Isrc
-SRCS			= src/flock.c src/key.c src/file.c src/util.c src/version.c
+SRCS			= src/flock.c src/key.c src/file.c src/util.c src/version.c src/error.c
 OBJS			= $(SRCS:src/%.c=build/%.o)
 LIB				= build/libflock.a
 
