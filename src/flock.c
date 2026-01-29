@@ -6,9 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <endian.h>
-
+#include <sys/mman.h> #include <endian.h>
 static const uint8_t FLOCK_MAGIC[FLOCK_MAGIC_LEN] = { 0xde, 0xad, 0xbe, 0xef };
 
 static struct flock_file *_flock_file_new(uint8_t *buf, size_t buf_len,
@@ -55,14 +53,14 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
-	int aad_len; // dummy (for now)
+	int aad_len = 0; // dummy (for now)
 	if (1 !=
 	    EVP_EncryptUpdate(ctx, NULL, &aad_len, out, FLOCK_HEADER_LEN)) {
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
 		return NULL;
 	}
-	int cip_len;
+	int cip_len = 0;
 	if (1 != EVP_EncryptUpdate(ctx, out + off, &cip_len, file->buf,
 				   file->buf_len)) {
 		munmap(out, out_len);
@@ -70,7 +68,7 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 		return NULL;
 	}
 	off += cip_len;
-	int tmp;
+	int tmp = 0;
 	if (1 != EVP_EncryptFinal_ex(ctx, NULL, &tmp)) {
 		munmap(out, out_len);
 		EVP_CIPHER_CTX_free(ctx);
@@ -107,9 +105,85 @@ struct flock_file *flock_encrypt(struct flock_file *file, struct flock_key *key)
 
 struct flock_file *flock_decrypt(struct flock_file *file, struct flock_key *key)
 {
-    (void)file;
-    (void)(key);
-	return NULL;
+	size_t meta_len = FLOCK_TAG_LEN - FLOCK_HEADER_LEN;
+	if (file->buf_len < meta_len) {
+		return NULL;
+	}
+	size_t out_len = file->buf_len - meta_len;
+	uint8_t *out = mmap(NULL, out_len, PROT_WRITE | PROT_READ,
+			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (MAP_FAILED == out) {
+		return NULL;
+	}
+	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+	if (!ctx) {
+		munmap(out, out_len);
+		return NULL;
+	}
+	if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
+				     FLOCK_KEY_NONCE_LEN, NULL)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	if (1 !=
+	    EVP_DecryptInit_ex(ctx, NULL, NULL, key->buf, key->param.nonce)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	int aad_len = 0; // dummy (for now)
+	if (1 != EVP_DecryptUpdate(ctx, NULL, &aad_len, file->buf,
+				   FLOCK_HEADER_LEN)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	int plain_len = 0;
+	if (1 != EVP_DecryptUpdate(ctx, out, &plain_len,
+				   file->buf + FLOCK_HEADER_LEN, out_len)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	if ((size_t)plain_len != out_len) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	if (1 !=
+	    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, FLOCK_TAG_LEN,
+				file->buf + file->buf_len - FLOCK_TAG_LEN)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	int tmp = 0;
+	if (1 != EVP_DecryptFinal_ex(ctx, NULL, &tmp)) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	char *out_path = strdup(file->path);
+	if (!out_path) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		return NULL;
+	}
+	struct flock_file *f = _flock_file_new(out, out_len, out_path);
+	if (!f) {
+		munmap(out, out_len);
+		EVP_CIPHER_CTX_free(ctx);
+		free(out_path);
+		return NULL;
+	}
+	EVP_CIPHER_CTX_free(ctx);
+	return f;
 }
 
 static struct flock_file *_flock_file_new(uint8_t *buf, size_t buf_len,
