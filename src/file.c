@@ -1,6 +1,7 @@
 #include "libflock/error.h"
 #include "libflock/flock.h"
 #include "libflock/version.h"
+#include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <openssl/evp.h>
@@ -137,7 +138,9 @@ int flock_file_get_meta(struct flock_file *file, struct flock_meta *meta)
 	off += FLOCK_MAGIC_LEN;
 	memcpy(meta->version, file->buf + off, FLOCK_VERSION_LEN);
 	off += FLOCK_VERSION_LEN;
-	memcpy(&meta->timestamp, file->buf + off, FLOCK_FILE_TIMESTAMP_LEN);
+	uint64_t ts;
+	memcpy(&ts, file->buf + off, FLOCK_FILE_TIMESTAMP_LEN);
+	meta->timestamp = le64toh(ts);
 	off += FLOCK_FILE_TIMESTAMP_LEN;
 	memcpy(meta->param.salt, file->buf + off, FLOCK_KEY_SALT_LEN);
 	off += FLOCK_KEY_SALT_LEN;
